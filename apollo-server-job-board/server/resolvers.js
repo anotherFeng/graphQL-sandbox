@@ -8,11 +8,10 @@ const Query = {
 
 const Mutation = {
   createJob: (root, {input}, context) =>{
-    //check user auth
     if(!context.user){
       throw new Error("unathorized");
     }
-    const id = db.jobs.create(input);
+    const id = db.jobs.create({companyId: context.user.companyId, ...input});
     return db.jobs.get(id);
   }
 }

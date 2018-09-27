@@ -1,5 +1,5 @@
-const {graphiqlExpress, graphqlExpress} = require('apollo-server-express');
-const {makeExecutableSchema} = require('graphql-tools');
+const { ApolloServer, gql } = require('apollo-server-express');
+const { makeExecutableSchema } = require('graphql-tools');
 const bodyParser = require('body-parser');
 
 const cors = require('cors');
@@ -12,9 +12,9 @@ const db = require('./db');
 const port = 9000;
 const jwtSecret = Buffer.from('Zn8Q5tyZ/G1MHltc4F/gTkVJMlrbKiZt', 'base64');
 
-const typeDefs = fs.readFileSync('./schema.gql', {encoding: 'utf-8'});
+const typeDefs = gql(fs.readFileSync('./schema.gql', {encoding: 'utf-8'}));
 const resolvers = require('./resolvers')
-const schema = makeExecutableSchema({typeDefs, resolvers});
+
 
 const app = express();
 app.use(cors(), bodyParser.json(), expressJwt({
@@ -22,11 +22,19 @@ app.use(cors(), bodyParser.json(), expressJwt({
   credentialsRequired: false
 }));
 
-app.use('/graphql', graphqlExpress((req)=> ({
-  schema,
-  context: {user: req.user}
-})));
-app.use('/ide', graphiqlExpress({endpointURL: '/graphql'}));
+const graphqlServer = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({req}) => ({user: req.user && db.users.get(req.user.sub)})
+});
+graphqlServer.applyMiddleware({app});
+
+// const schema = makeExecutableSchema({typeDefs, resolvers});
+// app.use('/graphql', graphqlExpress((req)=> ({
+//   schema,
+//   context: {user: req.user}
+// })));
+// app.use('/graphiql', graphiqlExpress({endpointURL: '/graphql'}));
 
 app.post('/login', (req, res) => {
   const {email, password} = req.body;
