@@ -1,15 +1,16 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from 'apollo-boost';
 import gql from 'graphql-tag';
-import { getAccessToken, isLoggedIn } from './auth.js';
+import { getAccessToken, isLoggedIn } from './auth';
 
 const endpointURL = 'http://localhost:9000/graphql';
+
 const authLink = new ApolloLink((operation, forward) => {
-  if(isLoggedIn()) {
+  if (isLoggedIn()) {
     operation.setContext({
       headers: {
         'authorization': 'Bearer ' + getAccessToken()
       }
-    })
+    });
   }
   return forward(operation);
 });
@@ -17,15 +18,36 @@ const authLink = new ApolloLink((operation, forward) => {
 const client = new ApolloClient({
   link: ApolloLink.from([
     authLink,
-    new HttpLink({uri: endpointURL}),
+    new HttpLink({uri: endpointURL})
   ]),
   cache: new InMemoryCache()
 });
 
-export async function loadCompany(id){
-  const query = gql`
-  query CompanyQuery($id: ID!){
-    company(id: $id){
+const jobDetailFragment = gql`
+  fragment JobDetail on Job {
+    id
+    title
+    company {
+      id
+      name
+    }
+    description
+  }
+`;
+
+const createJobMutation = gql`
+  mutation CreateJob($input: CreateJobInput) {
+    job: createJob(input: $input) {
+      ...JobDetail
+    }
+  }
+  ${jobDetailFragment}
+`;
+
+const companyQuery = gql`
+  query CompanyQuery($id: ID!) {
+    company(id: $id) {
+      id
       name
       description
       jobs {
@@ -33,77 +55,57 @@ export async function loadCompany(id){
         title
       }
     }
-  }`;
-  const {data} = await client.query({query, variables: {id}});
-  return data.company;
-};
+  }
+`;
 
-export async function createJob(input){
-  const mutation = gql`
-    mutation CreateJob($input: CreateJobInput){
-      job: createJob(input: $input){
-        id
-        title
-        company{
-          id
-          name
-        }
-      }
-    }`
-  const {data} = await client.mutate({mutation, variables: {input}});
-  return data.job;
-};
+const jobQuery = gql`
+  query JobQuery($id: ID!) {
+    job(id: $id) {
+      ...JobDetail
+    }
+  }
+  ${jobDetailFragment}
+`;
 
-export async function loadJob(id){
-  const query = gql`
-    query JobQuery($id: ID!){
-    job(id: $id){
+const jobsQuery = gql`
+  query JobsQuery {
+    jobs {
       id
       title
       company {
         id
         name
       }
-      description
     }
-  }`;
-  const {data} = await client.query({query, variables: {id}})
-  return data.job;
+  }
+`;
+
+export async function createJob(input) {
+  const {data: {job}} = await client.mutate({
+    mutation: createJobMutation,
+    variables: {input},
+    update: (cache, {data}) => {
+      cache.writeQuery({
+        query: jobQuery,
+        variables: {id: data.job.id},
+        data
+      })
+    }
+  });
+  return job;
 }
 
-export async function loadJobs(){
-  const query = gql`{
-    jobs {
-      id
-      title
-      company{
-        id
-        name
-      }
-    }
-  }`;
-  const {data} = await client.query({query});
-  return data.jobs;
+export async function loadCompany(id) {
+  const {data: {company}} = await client.query({query: companyQuery, variables: {id}});
+  return company;
 }
 
-// async function graphqlRequest(query, variables){
-//   const request = {
-//     method: 'POST',
-//     headers: {'content-type': 'application/json'},
-//     body: JSON.stringify({
-//       query: query,
-//       variables: variables
-//     })
-//   };
-//   if(isLoggedIn()) {
-//     request.headers['authorization'] = 'Bearer ' + getAccessToken();
-//   }
+export async function loadJob(id) {
+  const {data: {job}} = await client.query({query: jobQuery, variables: {id}});
+  return job;
+}
 
-//   const response = await fetch(endpointURL, request);
-//   const responseBody = await response.json();
-//   if(responseBody.errors){
-//     const message = responseBody.errors.map(error => error.message).join('\n');
-//     throw new Error(message)
-//   }
-//   return responseBody.data;
-// }
+export async function loadJobs() {
+  const {data: {jobs}} = await client.query({query: jobsQuery, fetchPolicy: 'no-cache'});
+  return jobs;
+}
