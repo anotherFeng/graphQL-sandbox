@@ -1,0 +1,24 @@
+{
+  "name": "graphql-sandbox",
+  "version": "1.0.0",
+  "description": "dependencies for whole repo",
+  "main": "index.js",
+  "scripts": {
+    "start:query": "babel-node graphql-query-demo/src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anotherFeng/graphQL-sandbox.git"
+  },
+  "author": "Feng Chen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/anotherFeng/graphQL-sandbox/issues"
+  },
+  "homepage": "https://github.com/anotherFeng/graphQL-sandbox#readme",
+  "dependencies": {
+    "babel-cli": "6.26.0",
+    "babel-preset-env": "1.7.0"
+  }
+}
